@@ -1,10 +1,8 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 
 import { AppError } from "@utils/AppError";
 
 import { storageAuthTokenGet, storageAuthTokenSave } from "@storage/storageAuthToken";
-
-type SignOut = () => void;
 
 type PromiseType = {
   resolve: (value?: unknown) => void;
@@ -16,8 +14,13 @@ type ProccessQueueParams = {
   token: string | null;
 }
 
+type RegisterInterceptTokenManagerProps = {
+  signOut: () => void;
+  refreshTokenUpdated: (newToken: string) => void;
+}
+
 type APIInstanceProps = AxiosInstance & {
-  registerInterceptTokenManager: (signOut: SignOut) => () => void;
+  registerInterceptTokenManager: ({}: RegisterInterceptTokenManagerProps) => () => void;
 }
 
 const api = axios.create({
@@ -39,14 +42,14 @@ const proccessQueue = ({ error, token = null  }:ProccessQueueParams): void => {
   failedQueue = [];
 }
 
-api.registerInterceptTokenManager = singOut => {
+api.registerInterceptTokenManager = ({ signOut, refreshTokenUpdated }) => {
   const interceptTokenManager = api.interceptors.response.use((response) => response, async requestError => {
     if(requestError.response?.status === 401) {
       if(requestError.response.data?.message === 'token.expired' || requestError.response.data?.message === 'token.invalid') {
         const oldToken = await storageAuthTokenGet();
 
         if(!oldToken) {
-          singOut();
+          signOut();
           return Promise.reject(requestError);
         }
 
@@ -76,13 +79,15 @@ api.registerInterceptTokenManager = singOut => {
             api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             originalRequest.headers['Authorization'] = `Bearer ${data.token}`;
             
+            refreshTokenUpdated(data.token);
             proccessQueue({ error: null, token: data.token });
 
+            console.log('TOKEN ATUALIZADO');
             resolve(originalRequest)
           }
           catch (error: any) {
             proccessQueue({ error, token: null });
-            singOut();
+            signOut();
             reject(error);
           } finally {
             isRefreshing = false;
@@ -91,7 +96,7 @@ api.registerInterceptTokenManager = singOut => {
         
       }
       
-      singOut();
+      signOut();
       
     }
 
