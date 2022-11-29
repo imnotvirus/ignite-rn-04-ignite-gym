@@ -1,6 +1,14 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useNavigation } from "@react-navigation/native";
-import { Center, Heading, Image, ScrollView, Text, VStack } from "native-base";
+import {
+  Center,
+  Heading,
+  Image,
+  ScrollView,
+  Text,
+  useToast,
+  VStack,
+} from "native-base";
 import { Controller, useForm } from "react-hook-form";
 import * as yup from "yup";
 
@@ -10,8 +18,8 @@ import LogoSvg from "@assets/logo.svg";
 import { Button } from "@components/Button";
 import { Input } from "@components/Input";
 import { api } from "@services/api";
-import axios from "axios";
-import { Alert } from "react-native";
+import { AppError } from "@utils/AppError";
+import { useState } from "react";
 
 type FormDataProps = {
   name: string;
@@ -34,6 +42,7 @@ const signUpSchema = yup.object({
 });
 
 export function SignUp() {
+  const [loading, setLoading] = useState(false);
   const {
     control,
     handleSubmit,
@@ -41,6 +50,7 @@ export function SignUp() {
   } = useForm<FormDataProps>({
     resolver: yupResolver(signUpSchema),
   });
+  const toast = useToast();
 
   const navigation = useNavigation();
 
@@ -49,6 +59,7 @@ export function SignUp() {
   }
 
   async function handleSignUp({ name, email, password }: FormDataProps) {
+    setLoading(true);
     try {
       const { data } = await api.post("users", {
         name,
@@ -57,9 +68,17 @@ export function SignUp() {
       });
       console.log(data);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        Alert.alert("Erro ao criar nova conta", error.response?.data.message);
-      }
+      const isAppError = error instanceof AppError;
+      const title = isAppError
+        ? error.message
+        : "Não foi possível realizar o cadastro";
+      toast.show({
+        title,
+        placement: "top",
+        bgColor: "red.500",
+      });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -151,6 +170,7 @@ export function SignUp() {
           <Button
             title="Criar e acessar"
             onPress={handleSubmit(handleSignUp)}
+            isLoading={loading}
           />
         </Center>
 
