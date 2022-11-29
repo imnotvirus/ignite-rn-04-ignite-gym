@@ -10,6 +10,7 @@ import LogoSvg from "@assets/logo.svg";
 import { Button } from "@components/Button";
 import { Input } from "@components/Input";
 import { api } from "@services/api";
+import axios from "axios";
 import { Alert } from "react-native";
 
 type FormDataProps = {
@@ -47,12 +48,7 @@ export function SignUp() {
     navigation.goBack();
   }
 
-  async function handleSignUp({
-    name,
-    email,
-    password,
-    password_confirm,
-  }: FormDataProps) {
+  async function handleSignUp({ name, email, password }: FormDataProps) {
     try {
       const { data } = await api.post("users", {
         name,
@@ -60,8 +56,10 @@ export function SignUp() {
         password,
       });
       console.log(data);
-    } catch (error: any) {
-      Alert.alert("Erro", error.response.data.message);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        Alert.alert("Erro ao criar nova conta", error.response?.data.message);
+      }
     }
   }
 
